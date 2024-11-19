@@ -17,7 +17,7 @@ Mappings:
       CIDR: 10.2.0.0/16
     eu-north-1:
       CIDR: 10.3.0.0/16
-    us-west-1:  # Add this section for us-west-1
+    us-west-1:
       CIDR: 10.4.0.0/16
 
   SubnetMapping:
@@ -30,11 +30,12 @@ Mappings:
     eu-north-1:
       myPublicSubnet: 10.3.1.0/24
       myPrivateSubnet: 10.3.2.0/24
-    us-west-1:  # Add this section for us-west-1
+    us-west-1:
       myPublicSubnet: 10.4.1.0/24
       myPrivateSubnet: 10.4.2.0/24
 
 Resources:
+  # Create the public subnet
   myPublicSubnet:
     Type: AWS::EC2::Subnet
     DependsOn: myDemoVPC
@@ -44,10 +45,12 @@ Resources:
         - SubnetMapping
         - !Ref "AWS::Region"
         - myPublicSubnet
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: PublicSubnet
 
+  # Create the private subnet
   myPrivateSubnet:
     Type: AWS::EC2::Subnet
     DependsOn: myDemoVPC
@@ -57,10 +60,12 @@ Resources:
         - SubnetMapping
         - !Ref "AWS::Region"
         - myPrivateSubnet
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
       Tags:
         - Key: Name
           Value: PrivateSubnet
 
+  # Create the VPC
   myDemoVPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -74,11 +79,69 @@ Resources:
         - Key: Name
           Value: myfirstVPC
 
+  # Create the Internet Gateway (IGW)
   MyInternetGateway:
     Type: AWS::EC2::InternetGateway
 
+  # Attach the IGW to the VPC
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref myDemoVPC
       InternetGatewayId: !Ref MyInternetGateway
+
+  # Create the Elastic IP for the NAT Gateway
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # Create the NAT Gateway in the public subnet
+  MyNATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId: !Ref myPublicSubnet
+
+  # Create the route table for the public subnet
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myDemoVPC
+
+  # Create a default route in the public route table pointing to the Internet Gateway
+  DefaultRouteToIGW:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyInternetGateway
+
+  # Associate the public route table with the public subnet
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref myPublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # Create the route table for the private subnet
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myDemoVPC
+
+  # Create a default route in the private route table pointing to the NAT Gateway
+  DefaultRouteToNAT:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref MyNATGateway
+
+  # Associate the private route table with the private subnet
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref myPrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
