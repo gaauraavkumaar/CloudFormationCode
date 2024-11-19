@@ -1,0 +1,80 @@
+Parameters:
+
+  az:
+    Type: String
+    Description: avalibility zone
+    Default: us-west-1a
+    AllowedValues: [us-west-1a,us-west-1b]
+
+  creator:
+    Type: String
+    Description: person who is the owner of this cft
+  
+  mykeypair:
+    Type: String
+    Description: key pair
+    Default: californiapublickey
+    AllowedValues: [californiapvtkey,californiapublickey]
+  
+  myAMIid:
+    Type: String
+    Description: ami id
+    Default: ami-05c65d8bb2e35991a
+    AllowedValues: [ami-0da424eb883458071,ami-0b0263de90abb6474,ami-05c65d8bb2e35991a]
+
+  EC2InstanceTpe:
+    Description: Select Instance Type.
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t2.micro,t3.nano,t3.small,t3.micro]
+
+Resources:
+  myEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref mykeypair
+      DisableApiTermination: false
+      ImageId: !Ref myAMIid
+      AvailabilityZone: !Ref az
+      InstanceType: !Ref EC2InstanceTpe
+      Monitoring: false
+      UserData:
+          Fn::Base64: 
+            !Sub |
+             #!/bin/bash
+             yum update -y
+             yum install -y httpd.x86_64
+             systemctl start httpd.service
+             systemctl enable httpd.service
+             echo ?Hello World from $(hostname -f) > /var/www/html/index.html
+        
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-EC2
+        - Key: Stack
+          Value: !Sub ${AWS::StackId}
+
+  myNewEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref mykeypair
+      DisableApiTermination: false
+      ImageId: !Ref myAMIid
+      AvailabilityZone: us-west-1b
+      InstanceType: !Ref EC2InstanceTpe
+      Monitoring: false
+      UserData:
+          Fn::Base64: 
+            !Sub |
+             #!/bin/bash
+             yum update -y
+             yum install -y httpd.x86_64
+             systemctl start httpd.service
+             systemctl enable httpd.service
+             echo ?Hello World from $(hostname -f) > /var/www/html/index.html
+        
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-EC2
+        - Key: Stack
+          Value: !Sub ${AWS::StackId}

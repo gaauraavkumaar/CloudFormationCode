@@ -1,0 +1,84 @@
+Parameters:
+  az:
+    Type: String
+    Description: Availability zone info
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+      - ap-south-1
+      - eu-north-1
+      - us-west-1  # Add this line for us-west-1
+
+Mappings:
+  az:
+    us-east-1:
+      CIDR: 10.1.0.0/16
+    ap-south-1:
+      CIDR: 10.2.0.0/16
+    eu-north-1:
+      CIDR: 10.3.0.0/16
+    us-west-1:  # Add this section for us-west-1
+      CIDR: 10.4.0.0/16
+
+  SubnetMapping:
+    us-east-1:
+      myPublicSubnet: 10.1.1.0/24
+      myPrivateSubnet: 10.1.2.0/24
+    ap-south-1:
+      myPublicSubnet: 10.2.1.0/24
+      myPrivateSubnet: 10.2.2.0/24
+    eu-north-1:
+      myPublicSubnet: 10.3.1.0/24
+      myPrivateSubnet: 10.3.2.0/24
+    us-west-1:  # Add this section for us-west-1
+      myPublicSubnet: 10.4.1.0/24
+      myPrivateSubnet: 10.4.2.0/24
+
+Resources:
+  myPublicSubnet:
+    Type: AWS::EC2::Subnet
+    DependsOn: myDemoVPC
+    Properties:
+      VpcId: !Ref myDemoVPC
+      CidrBlock: !FindInMap
+        - SubnetMapping
+        - !Ref "AWS::Region"
+        - myPublicSubnet
+      Tags:
+        - Key: Name
+          Value: PublicSubnet
+
+  myPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    DependsOn: myDemoVPC
+    Properties:
+      VpcId: !Ref myDemoVPC
+      CidrBlock: !FindInMap
+        - SubnetMapping
+        - !Ref "AWS::Region"
+        - myPrivateSubnet
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet
+
+  myDemoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap
+        - az
+        - !Ref "AWS::Region"
+        - CIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: myfirstVPC
+
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref myDemoVPC
+      InternetGatewayId: !Ref MyInternetGateway
